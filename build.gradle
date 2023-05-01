@@ -1,0 +1,9 @@
+group 'ru.redguy'
+version '1.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+}

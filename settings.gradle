@@ -1,0 +1,5 @@
+rootProject.name = 'BigTable'
+include 'server'
+include 'client'
+include 'common'
+
