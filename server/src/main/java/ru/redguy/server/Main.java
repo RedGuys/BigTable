@@ -6,8 +6,11 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.time.Instant;
 import java.util.Random;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class Main {
@@ -17,12 +20,7 @@ public class Main {
         ServerSocket serverSocket = new ServerSocket(3562);
         Table table = new Table();
 
-        for (int i = 0; i < 2500000; i++) { // add 2.5M records to table
-            if(i%100000==0)
-                System.out.println(i);
-            table.add(new Person(random.nextInt(Integer.MAX_VALUE), generateString(), generateString(), (int) (Math.random() * 100)));
-        }
-        /*ThreadPoolExecutor addPool = new ThreadPoolExecutor(2, 4, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
+        ThreadPoolExecutor addPool = new ThreadPoolExecutor(2, 4, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
         for (int i = 0; i < 25000; i++) { // add 2.5M records to table
             addPool.execute(() -> {
                 for (int j = 0; j < 100; j++) {
@@ -33,7 +31,7 @@ public class Main {
         while (!addPool.getQueue().isEmpty()) {
             System.out.println(Instant.now().toString() + " " + addPool.getQueue().size());
             Thread.sleep(1000);
-        }*/
+        }
 
         System.out.println("Data generated");
 

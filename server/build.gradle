@@ -9,6 +9,10 @@ repositories {
     mavenCentral()
 }
 
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
 dependencies {
     implementation 'org.jetbrains:annotations:23.0.0'
 }

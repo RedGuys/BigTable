@@ -11,11 +11,15 @@ public class Table {
     //Таблица живая, постоянно изменяется (несколько сотен/десятков изменений в секунду). В нее добавляются новые строки, обновляются и удаляются существующие.
 
     private static Random random = new Random();
-    private ArrayList<Person> records = new ArrayList<>();
-    private HashSet<Integer> ids = new HashSet<>();
+    private static final int BATCH_SIZE = 1000000;
+    private CopyOnWriteArrayList<CopyOnWriteArrayList<Person>> batches = new CopyOnWriteArrayList<>();
+    private Set<Integer> ids = Collections.synchronizedSet(new HashSet<>());
     private ServerSocketThread serverSocketThread = null;
 
     public Table() {
+        for (int i = 0; i < (Integer.MAX_VALUE / BATCH_SIZE) + 1; i++) {
+            batches.add(new CopyOnWriteArrayList<>());
+        }
     }
 
     public void setServerSocketThread(ServerSocketThread serverSocketThread) {
@@ -23,32 +27,55 @@ public class Table {
     }
 
     public List<Person> getRecords(int from, int length) {
-        //check out of bounds
-        if (from < 0 || from > records.size()) {
+        if (from < 0 || length < 0) {
             return new ArrayList<>();
         }
-        if (from + length > records.size()) {
-            length = records.size() - from;
+
+        int batchFrom = from / BATCH_SIZE;
+        int batchTo = (from + length - 1) / BATCH_SIZE;
+        int fromIndex = from % BATCH_SIZE;
+        int toIndex = (from + length - 1) % BATCH_SIZE + 1;
+
+        List<Person> result = new ArrayList<>();
+
+        for (int i = batchFrom; i <= batchTo; i++) {
+            int currentBatchSize = batches.get(i).size();
+
+            if (currentBatchSize >= toIndex) {
+                result.addAll(batches.get(i).subList(fromIndex, toIndex));
+                break;
+            }
+            result.addAll(batches.get(i).subList(fromIndex, currentBatchSize));
+
+            fromIndex = 0;
+            toIndex -= currentBatchSize;
         }
-        return records.subList(from, from + length);
+
+        return result;
     }
 
     public void add(@NotNull Person person) {
         while (ids.contains(person.getId())) { //Protect from collisions
             person.setId(random.nextInt(Integer.MAX_VALUE));
         }
-        int i = Collections.binarySearch(records, person, Comparator.comparing(Person::getId));
-        if(i < 0) {
-            records.add(-i -1, person);
+
+        int batch = person.getId() / BATCH_SIZE;
+        CopyOnWriteArrayList<Person> batchList = batches.get(batch);
+        int i = Collections.binarySearch(batchList, person, Comparator.comparing(Person::getId));
+        if (i < 0) {
+            batchList.add(-i - 1, person);
         }
-        this.ids.add(person.getId());
+
+        ids.add(person.getId());
         if (serverSocketThread != null) {
             serverSocketThread.distributePersonAdd(person);
         }
     }
 
     public Person getPerson(int id) {
-        for (Person person : records) {
+        int batch = id / BATCH_SIZE;
+        CopyOnWriteArrayList<Person> batchList = batches.get(batch);
+        for (Person person : batchList) {
             if (person.getId() == id) {
                 return person;
             }
@@ -57,32 +84,28 @@ public class Table {
     }
 
     public void remove(int id) {
-        Person person = getPerson(id);
-        if (person == null) {
-            return;
-        }
-        records.remove(person);
-        ids.remove((Integer) id);
-        if (serverSocketThread != null) {
-            serverSocketThread.distributePersonDelete(person);
-        }
+        remove(getPerson(id));
     }
 
     public void remove(Person person) {
-        if(person == null) {
+        if (person == null) {
             return;
         }
-        records.remove(person);
-        ids.remove((Integer) person.getId());
+        int batch = person.getId() / BATCH_SIZE;
+        CopyOnWriteArrayList<Person> batchList = batches.get(batch);
+        int i = Collections.binarySearch(batchList, person, Comparator.comparing(Person::getId));
+        if (i >= 0) {
+            batchList.remove(i);
+        }
+        ids.remove(person.getId());
         if (serverSocketThread != null) {
             serverSocketThread.distributePersonDelete(person);
         }
     }
 
     public Person getRandomPerson() {
-        if(records.size() == 0) {
-            return null;
-        }
-        return records.get((int) (Math.random() * records.size()));
+        int batch = random.nextInt(batches.size());
+        CopyOnWriteArrayList<Person> batchList = batches.get(batch);
+        return batchList.get(random.nextInt(batchList.size()));
     }
 }
