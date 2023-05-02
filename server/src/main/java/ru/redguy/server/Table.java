@@ -2,8 +2,7 @@ package ru.redguy.server;
 
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class Table {
@@ -11,8 +10,9 @@ public class Table {
     //Строки отсортированы в некотором порядке, принцип сортировки может меняться, каждая строка имеет свой уникальный идентификатор.
     //Таблица живая, постоянно изменяется (несколько сотен/десятков изменений в секунду). В нее добавляются новые строки, обновляются и удаляются существующие.
 
-    private CopyOnWriteArrayList<Person> records = new CopyOnWriteArrayList<>();
-    private CopyOnWriteArrayList<Integer> ids = new CopyOnWriteArrayList<>();
+    private static Random random = new Random();
+    private ArrayList<Person> records = new ArrayList<>();
+    private HashSet<Integer> ids = new HashSet<>();
     private ServerSocketThread serverSocketThread = null;
 
     public Table() {
@@ -35,20 +35,11 @@ public class Table {
 
     public void add(@NotNull Person person) {
         while (ids.contains(person.getId())) { //Protect from collisions
-            person.setId((int) (Math.random() * 100000));
+            person.setId(random.nextInt(Integer.MAX_VALUE));
         }
-        int i = 0;
-        boolean added = false;
-        for (Person person1 : records) { // Changable sort
-            if (person1.getId() > person.getId()) {
-                records.add(i, person);
-                added = true;
-                break;
-            }
-            i++;
-        }
-        if (!added) {
-            records.add(person);
+        int i = Collections.binarySearch(records, person, Comparator.comparing(Person::getId));
+        if(i < 0) {
+            records.add(-i -1, person);
         }
         this.ids.add(person.getId());
         if (serverSocketThread != null) {
