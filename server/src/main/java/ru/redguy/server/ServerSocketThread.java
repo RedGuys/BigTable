@@ -55,4 +55,11 @@ public class ServerSocketThread extends Thread {
             cst.deletePerson(person);
         }
     }
+
+    public void distributePersonUpdate(Person person) {
+        clientSocketThreads.removeIf((cst) -> cst.socket.isClosed());
+        for (ClientSocketThread cst : clientSocketThreads) {
+            cst.updatePerson(person);
+        }
+    }
 }

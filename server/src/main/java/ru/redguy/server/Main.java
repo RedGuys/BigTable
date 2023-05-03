@@ -20,7 +20,7 @@ public class Main {
         ServerSocket serverSocket = new ServerSocket(3562);
         Table table = new Table();
 
-        ThreadPoolExecutor addPool = new ThreadPoolExecutor(2, 4, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
+        /*ThreadPoolExecutor addPool = new ThreadPoolExecutor(2, 4, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
         for (int i = 0; i < 25000; i++) { // add 2.5M records to table
             addPool.execute(() -> {
                 for (int j = 0; j < 100; j++) {
@@ -31,7 +31,7 @@ public class Main {
         while (!addPool.getQueue().isEmpty()) {
             System.out.println(Instant.now().toString() + " " + addPool.getQueue().size());
             Thread.sleep(1000);
-        }
+        }*/
 
         System.out.println("Data generated");
 
@@ -50,9 +50,30 @@ public class Main {
                     Person person1 = table.getRandomPerson();
                     table.remove(person1);
                     break;
-                case 2:
-                    //TODO: change person
+                case 2: {
+                    int subAction = (int) (Math.random() * 3);
+                    switch (subAction) {
+                        case 0:
+                            Person person2 = table.getRandomPerson();
+                            if(person2 == null) break;
+                            person2.setFirstName(generateString());
+                            table.update(person2);
+                            break;
+                        case 1:
+                            Person person3 = table.getRandomPerson();
+                            if(person3 == null) break;
+                            person3.setLastName(generateString());
+                            table.update(person3);
+                            break;
+                        case 2:
+                            Person person4 = table.getRandomPerson();
+                            if(person4 == null) break;
+                            person4.setAge((int) (Math.random() * 100));
+                            table.update(person4);
+                            break;
+                    }
                     break;
+                }
             }
         }, 0, 1, TimeUnit.MILLISECONDS);
     }

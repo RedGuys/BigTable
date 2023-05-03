@@ -96,4 +96,17 @@ public class ClientSocketThread extends Thread {
             }
         }
     }
+
+    public void updatePerson(Person person) {
+        if (clientPersons.contains(person)) {
+            try {
+                List<Person> viewPersons = table.getRecords(index, height);
+                outputStream.writeInt(4);
+                outputStream.writeInt(clientPersons.indexOf(person));
+                person.write(outputStream);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
 }

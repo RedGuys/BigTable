@@ -104,8 +104,27 @@ public class Table {
     }
 
     public Person getRandomPerson() {
-        int batch = random.nextInt(batches.size());
-        CopyOnWriteArrayList<Person> batchList = batches.get(batch);
-        return batchList.get(random.nextInt(batchList.size()));
+        int sum = 0;
+        for (CopyOnWriteArrayList<Person> batch : batches) {
+            sum += batch.size();
+        }
+        if (sum == 0) {
+            return null;
+        }
+        Person p = null;
+        while (p == null) {
+            int batch = random.nextInt(batches.size());
+            CopyOnWriteArrayList<Person> batchList = batches.get(batch);
+            if (batchList.size() > 0) {
+                p = batchList.get(random.nextInt(batchList.size()));
+            }
+        }
+        return p;
+    }
+
+    public void update(Person person) {
+        if (serverSocketThread != null) {
+            serverSocketThread.distributePersonUpdate(person);
+        }
     }
 }
