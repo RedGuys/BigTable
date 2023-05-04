@@ -16,6 +16,26 @@ public class HelloApplication extends Application {
     @Override
     public void start(Stage stage) throws IOException {
         TableView<Person> table = new TableView(clientSocketThread.persons);
+        table.setOnKeyReleased((event) -> {
+            switch (event.getCode()) {
+                case UP: {
+                    try {
+                        clientSocketThread.up();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                    break;
+                }
+                case DOWN: {
+                    try {
+                        clientSocketThread.down();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                    break;
+                }
+            }
+        });
         Scene scene = new Scene(table, 500, 500);
         scene.getRoot().setStyle("-fx-base:black");
         stage.setScene(scene);

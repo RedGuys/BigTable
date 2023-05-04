@@ -41,12 +41,24 @@ public class ClientSocketThread extends Thread {
                     case 1: {
                         height = inputStream.readInt();
                         List<Person> persons = table.getRecords(index, height);
-                        outputStream.writeInt(1);
-                        outputStream.writeInt(persons.size());
-                        for (Person person : persons) {
-                            person.write(outputStream);
-                        }
-                        clientPersons.addAll(persons);
+                            outputStream.writeInt(1);
+                            outputStream.writeInt(persons.size());
+                            for (Person person : persons) {
+                                person.write(outputStream);
+                            }
+                            clientPersons.addAll(persons);
+                        break;
+                    }
+                    case 2: {
+                        int direction = inputStream.readInt();
+                        index += direction;
+                        List<Person> persons = table.getRecords(index, height);
+                            outputStream.writeInt(1);
+                            outputStream.writeInt(persons.size());
+                            for (Person person : persons) {
+                                person.write(outputStream);
+                            }
+                            clientPersons = new CopyOnWriteArrayList<>(persons);
                         break;
                     }
                 }

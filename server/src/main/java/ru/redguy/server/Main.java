@@ -20,7 +20,7 @@ public class Main {
         ServerSocket serverSocket = new ServerSocket(3562);
         Table table = new Table();
 
-        /*ThreadPoolExecutor addPool = new ThreadPoolExecutor(2, 4, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
+        ThreadPoolExecutor addPool = new ThreadPoolExecutor(2, 4, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
         for (int i = 0; i < 25000; i++) { // add 2.5M records to table
             addPool.execute(() -> {
                 for (int j = 0; j < 100; j++) {
@@ -31,7 +31,7 @@ public class Main {
         while (!addPool.getQueue().isEmpty()) {
             System.out.println(Instant.now().toString() + " " + addPool.getQueue().size());
             Thread.sleep(1000);
-        }*/
+        }
 
         System.out.println("Data generated");
 

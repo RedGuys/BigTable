@@ -9,6 +9,9 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 
+//1 - update client info
+//2 - move view
+
 public class ClientSocketThread extends Thread {
     private final DataInputStream inputStream;
     private final DataOutputStream outputStream;
@@ -45,15 +48,31 @@ public class ClientSocketThread extends Thread {
                             persons.remove(index);
                         break;
                     }
+                    case 4: {
+                        int index = inputStream.readInt();
+                        if (index < persons.size())
+                            persons.set(index, Person.read(inputStream));
+                        break;
+                    }
                 }
             }
         } catch (IOException e) {
-            System.out.println(e);
+            e.printStackTrace();
         }
     }
 
     public void sendClientInfo() throws IOException {
         outputStream.writeInt(1);
         outputStream.writeInt(10); //client height set to 10
+    }
+
+    public void down() throws IOException {
+        outputStream.writeInt(2);
+        outputStream.writeInt(1);
+    }
+
+    public void up() throws IOException {
+        outputStream.writeInt(2);
+        outputStream.writeInt(-1);
     }
 }
