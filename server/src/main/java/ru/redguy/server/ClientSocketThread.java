@@ -15,7 +15,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 //4 - replace person
 
 public class ClientSocketThread extends Thread {
-    private Table table;
+    private final Table table;
     protected Socket socket;
     private final DataInputStream inputStream;
     private final DataOutputStream outputStream;
@@ -41,24 +41,37 @@ public class ClientSocketThread extends Thread {
                     case 1: {
                         height = inputStream.readInt();
                         List<Person> persons = table.getRecords(index, height);
-                            outputStream.writeInt(1);
-                            outputStream.writeInt(persons.size());
-                            for (Person person : persons) {
-                                person.write(outputStream);
-                            }
-                            clientPersons.addAll(persons);
+                        outputStream.writeInt(1);
+                        outputStream.writeInt(persons.size());
+                        for (Person person : persons) {
+                            person.write(outputStream);
+                        }
+                        clientPersons.addAll(persons);
                         break;
                     }
                     case 2: {
                         int direction = inputStream.readInt();
                         index += direction;
                         List<Person> persons = table.getRecords(index, height);
-                            outputStream.writeInt(1);
-                            outputStream.writeInt(persons.size());
-                            for (Person person : persons) {
-                                person.write(outputStream);
-                            }
-                            clientPersons = new CopyOnWriteArrayList<>(persons);
+                        outputStream.writeInt(1);
+                        outputStream.writeInt(persons.size());
+                        for (Person person : persons) {
+                            person.write(outputStream);
+                        }
+                        clientPersons = new CopyOnWriteArrayList<>(persons);
+                        break;
+                    }
+                    case 3: {
+                        String sort = inputStream.readUTF();
+                        String order = inputStream.readUTF();
+                        table.sort(sort, order);
+                        List<Person> persons = table.getRecords(index, height);
+                        outputStream.writeInt(1);
+                        outputStream.writeInt(persons.size());
+                        for (Person person : persons) {
+                            person.write(outputStream);
+                        }
+                        clientPersons = new CopyOnWriteArrayList<>(persons);
                         break;
                     }
                 }
@@ -73,12 +86,11 @@ public class ClientSocketThread extends Thread {
         if (viewPersons.contains(person)) {
             //delete last person on screen
             try {
-                if(clientPersons.size() >= height) {
+                if (clientPersons.size() >= height) {
                     outputStream.writeInt(3);
                     outputStream.writeInt(height - 1);
                     clientPersons.remove(height - 1);
                 }
-                //send new person with respect to index
                 outputStream.writeInt(2);
                 outputStream.writeInt(viewPersons.indexOf(person));
                 person.write(outputStream);
@@ -96,8 +108,7 @@ public class ClientSocketThread extends Thread {
                 outputStream.writeInt(3);
                 outputStream.writeInt(clientPersons.indexOf(person));
                 clientPersons.remove(person);
-                //send new person with respect to index
-                if(viewPersons.size() >= height) {
+                if (viewPersons.size() >= height) {
                     outputStream.writeInt(2);
                     outputStream.writeInt(height - 1);
                     viewPersons.get(height - 1).write(outputStream);
@@ -112,7 +123,6 @@ public class ClientSocketThread extends Thread {
     public void updatePerson(Person person) {
         if (clientPersons.contains(person)) {
             try {
-                List<Person> viewPersons = table.getRecords(index, height);
                 outputStream.writeInt(4);
                 outputStream.writeInt(clientPersons.indexOf(person));
                 person.write(outputStream);

@@ -9,10 +9,10 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 public class Person {
-    private SimpleIntegerProperty id;
-    private SimpleStringProperty firstName;
-    private SimpleStringProperty lastName;
-    private SimpleIntegerProperty age;
+    private final SimpleIntegerProperty id;
+    private final SimpleStringProperty firstName;
+    private final SimpleStringProperty lastName;
+    private final SimpleIntegerProperty age;
 
     public Person(int id, String firstName, String lastName, int age) {
         this.id = new SimpleIntegerProperty(null, "id", id);

@@ -11,15 +11,17 @@ public class Table {
     //Таблица живая, постоянно изменяется (несколько сотен/десятков изменений в секунду). В нее добавляются новые строки, обновляются и удаляются существующие.
 
     private static Random random = new Random();
-    private static final int BATCH_SIZE = 1000000;
-    private CopyOnWriteArrayList<CopyOnWriteArrayList<Person>> batches = new CopyOnWriteArrayList<>();
     private Set<Integer> ids = Collections.synchronizedSet(new HashSet<>());
     private ServerSocketThread serverSocketThread = null;
+    private boolean lock = false;
+    private SortedMap<Object, List<Person>> sort = new TreeMap<>(Comparator.comparing((p) -> {
+        if (p instanceof Person)
+            return ((Person) p).getId();
+        return (Integer) p;
+    }));
+    private String sortKey = "id";
 
     public Table() {
-        for (int i = 0; i < (Integer.MAX_VALUE / BATCH_SIZE) + 1; i++) {
-            batches.add(new CopyOnWriteArrayList<>());
-        }
     }
 
     public void setServerSocketThread(ServerSocketThread serverSocketThread) {
@@ -27,43 +29,84 @@ public class Table {
     }
 
     public List<Person> getRecords(int from, int length) {
+        //wait for unlock
+        while (lock) {
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException ignored) {
+            }
+        }
         if (from < 0 || length < 0) {
             return new ArrayList<>();
         }
 
-        int batchFrom = from / BATCH_SIZE;
-        int batchTo = (from + length - 1) / BATCH_SIZE;
-        int fromIndex = from % BATCH_SIZE;
-        int toIndex = (from + length - 1) % BATCH_SIZE + 1;
-
         List<Person> result = new ArrayList<>();
 
-        for (int i = batchFrom; i <= batchTo; i++) {
-            int currentBatchSize = batches.get(i).size();
-
-            if (currentBatchSize >= toIndex) {
-                result.addAll(batches.get(i).subList(fromIndex, toIndex));
+        // Calculate the key that corresponds to the element at the given index
+        Object fromKey = null;
+        int i = 0;
+        for (Object key : sort.keySet()) {
+            List<Person> list = sort.get(key);
+            int listSize = list.size();
+            if (i + listSize > from) {
+                fromKey = key;
                 break;
             }
-            result.addAll(batches.get(i).subList(fromIndex, currentBatchSize));
+            i += listSize;
+        }
 
-            fromIndex = 0;
-            toIndex -= currentBatchSize;
+        // If fromKey is null, there are no elements to retrieve
+        if (fromKey == null) {
+            return result;
+        }
+
+        // Calculate the end index of the sublist
+        int to = from + length;
+
+        // Iterate over the values of the submap and add the elements to the result list
+        int j = 0;
+        for (List<Person> list : sort.subMap(fromKey, sort.lastKey()).values()) {
+            for (Person person : list) {
+                if (i + j >= from && i + j < to) {
+                    result.add(person);
+                }
+                j++;
+            }
+            if (i + j >= to) {
+                break;
+            }
         }
 
         return result;
     }
 
     public void add(@NotNull Person person) {
+        //wait for unlock
+        while (lock) {
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException ignored) {
+            }
+        }
         while (ids.contains(person.getId())) { //Protect from collisions
             person.setId(random.nextInt(Integer.MAX_VALUE));
         }
 
-        int batch = person.getId() / BATCH_SIZE;
-        CopyOnWriteArrayList<Person> batchList = batches.get(batch);
-        int i = Collections.binarySearch(batchList, person, Comparator.comparing(Person::getId));
-        if (i < 0) {
-            batchList.add(-i - 1, person);
+        //add to sort
+        Object key = switch (sortKey) {
+            case "id" -> person.getId();
+            case "firstName" -> person.getFirstName();
+            case "lastName" -> person.getLastName();
+            case "age" -> person.getAge();
+            default -> null;
+        };
+        synchronized (sort) {
+            List<Person> list = sort.get(key);
+            if (list == null) {
+                list = new ArrayList<>();
+                sort.put(key, list);
+            }
+            list.add(person);
         }
 
         ids.add(person.getId());
@@ -72,31 +115,31 @@ public class Table {
         }
     }
 
-    public Person getPerson(int id) {
-        int batch = id / BATCH_SIZE;
-        CopyOnWriteArrayList<Person> batchList = batches.get(batch);
-        for (Person person : batchList) {
-            if (person.getId() == id) {
-                return person;
+    public void remove(Person person) {
+        //wait for unlock
+        while (lock) {
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException ignored) {
             }
         }
-        return null;
-    }
-
-    public void remove(int id) {
-        remove(getPerson(id));
-    }
-
-    public void remove(Person person) {
         if (person == null) {
             return;
         }
-        int batch = person.getId() / BATCH_SIZE;
-        CopyOnWriteArrayList<Person> batchList = batches.get(batch);
-        int i = Collections.binarySearch(batchList, person, Comparator.comparing(Person::getId));
-        if (i >= 0) {
-            batchList.remove(i);
+
+        //remove from sort
+        Object key = switch (sortKey) {
+            case "id" -> person.getId();
+            case "firstName" -> person.getFirstName();
+            case "lastName" -> person.getLastName();
+            case "age" -> person.getAge();
+            default -> null;
+        };
+        List<Person> list = sort.get(key);
+        if (list != null) {
+            list.remove(person);
         }
+
         ids.remove(person.getId());
         if (serverSocketThread != null) {
             serverSocketThread.distributePersonDelete(person);
@@ -104,27 +147,110 @@ public class Table {
     }
 
     public Person getRandomPerson() {
-        int sum = 0;
-        for (CopyOnWriteArrayList<Person> batch : batches) {
-            sum += batch.size();
-        }
-        if (sum == 0) {
-            return null;
-        }
-        Person p = null;
-        while (p == null) {
-            int batch = random.nextInt(batches.size());
-            CopyOnWriteArrayList<Person> batchList = batches.get(batch);
-            if (batchList.size() > 0) {
-                p = batchList.get(random.nextInt(batchList.size()));
+        //wait for unlock
+        while (lock) {
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException ignored) {
             }
         }
-        return p;
+        Object key = sort.keySet().toArray()[random.nextInt(sort.size())];
+        List<Person> list = sort.get(key);
+        return list.get(random.nextInt(list.size()));
     }
 
     public void update(Person person) {
+        //wait for unlock
+        while (lock) {
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException ignored) {
+            }
+        }
+        if (person == null) {
+            return;
+        }
+        //remove from sort, without use key
+        for (List<Person> list : sort.values()) {
+            list.remove(person);
+        }
+
+        Object key = switch (sortKey) {
+            case "id" -> person.getId();
+            case "firstName" -> person.getFirstName();
+            case "lastName" -> person.getLastName();
+            case "age" -> person.getAge();
+            default -> null;
+        };
+        synchronized (sort) {
+            List<Person> list = sort.get(key);
+            if (list == null) {
+                list = new ArrayList<>();
+                sort.put(key, list);
+            }
+            list.add(person);
+        }
         if (serverSocketThread != null) {
             serverSocketThread.distributePersonUpdate(person);
         }
+    }
+
+    /**
+     * Sorts table by property
+     *
+     * @param property id, firstName, lastName, age
+     * @param order    asc, desc
+     */
+    public void sort(@NotNull String property, String order) {
+        Comparator<Object> comparator = switch (property) {
+            case "id" -> Comparator.comparing((p) -> {
+                if (p instanceof Person)
+                    return ((Person) p).getId();
+                return (Integer) p;
+            });
+            case "firstName" -> Comparator.comparing((p) -> {
+                if (p instanceof Person)
+                    return ((Person) p).getFirstName();
+                return (String) p;
+            });
+            case "lastName" -> Comparator.comparing((p) -> {
+                if (p instanceof Person)
+                    return ((Person) p).getLastName();
+                return (String) p;
+            });
+            case "age" -> Comparator.comparing((p) -> {
+                if (p instanceof Person)
+                    return ((Person) p).getAge();
+                return (Integer) p;
+            });
+            default -> null;
+        };
+        if (comparator == null) {
+            return;
+        }
+        if (order.equals("desc")) {
+            comparator = comparator.reversed();
+        }
+        lock = true;
+        sortKey = property;
+        List<Person> persons = new ArrayList<>();
+        for (List<Person> list : sort.values()) {
+            persons.addAll(list);
+        }
+        sort = new TreeMap<>(comparator);
+        for (Person person : persons) {
+            Object key = switch (property) {
+                case "id" -> person.getId();
+                case "firstName" -> person.getFirstName();
+                case "lastName" -> person.getLastName();
+                case "age" -> person.getAge();
+                default -> null;
+            };
+            if (!sort.containsKey(key)) {
+                sort.put(key, new ArrayList<>());
+            }
+            sort.get(key).add(person);
+        }
+        lock = false;
     }
 }

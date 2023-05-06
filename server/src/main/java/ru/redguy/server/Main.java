@@ -33,7 +33,7 @@ public class Main {
             Thread.sleep(1000);
         }
 
-        System.out.println("Data generated");
+        System.out.println(Instant.now().toString() + " " + "Data generated");
 
         ServerSocketThread serverSocketThread = new ServerSocketThread(table, serverSocket);
         new Thread(serverSocketThread).start();
@@ -53,24 +53,24 @@ public class Main {
                 case 2: {
                     int subAction = (int) (Math.random() * 3);
                     switch (subAction) {
-                        case 0:
+                        case 0 -> {
                             Person person2 = table.getRandomPerson();
-                            if(person2 == null) break;
+                            if (person2 == null) break;
                             person2.setFirstName(generateString());
                             table.update(person2);
-                            break;
-                        case 1:
+                        }
+                        case 1 -> {
                             Person person3 = table.getRandomPerson();
-                            if(person3 == null) break;
+                            if (person3 == null) break;
                             person3.setLastName(generateString());
                             table.update(person3);
-                            break;
-                        case 2:
+                        }
+                        case 2 -> {
                             Person person4 = table.getRandomPerson();
-                            if(person4 == null) break;
+                            if (person4 == null) break;
                             person4.setAge((int) (Math.random() * 100));
                             table.update(person4);
-                            break;
+                        }
                     }
                     break;
                 }

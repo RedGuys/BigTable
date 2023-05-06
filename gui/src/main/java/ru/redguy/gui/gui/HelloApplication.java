@@ -1,6 +1,8 @@
 package ru.redguy.gui.gui;
 
 import javafx.application.Application;
+import javafx.scene.Node;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
@@ -18,21 +20,19 @@ public class HelloApplication extends Application {
         TableView<Person> table = new TableView(clientSocketThread.persons);
         table.setOnKeyReleased((event) -> {
             switch (event.getCode()) {
-                case UP: {
+                case UP -> {
                     try {
                         clientSocketThread.up();
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
-                    break;
                 }
-                case DOWN: {
+                case DOWN -> {
                     try {
                         clientSocketThread.down();
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
-                    break;
                 }
             }
         });
@@ -56,6 +56,43 @@ public class HelloApplication extends Application {
         TableColumn<Person, Integer> ageColumn = new TableColumn<Person, Integer>("Age");
         ageColumn.setCellValueFactory(new PropertyValueFactory<Person, Integer>("age"));
         table.getColumns().add(ageColumn);
+
+        table.setOnSort((event) -> {
+            disableAll(scene.getRoot());
+            try {
+                if(table.getSortOrder().get(0) == null) {
+                    clientSocketThread.sort("id", "asc");
+                } else {
+                    clientSocketThread.sort(switch (table.getSortOrder().get(0).getText()) {
+                        case "First Name" -> "firstName";
+                        case "Last Name" -> "lastName";
+                        case "Age" -> "age";
+                        default -> "id";
+                    }, switch (table.getSortOrder().get(0).getSortType()) {
+                        case ASCENDING -> "asc";
+                        case DESCENDING -> "desc";
+                    });
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            } finally {
+                enableAll(scene.getRoot());
+            }
+        });
+    }
+
+    private void disableAll(Node node) {
+        if (node instanceof Parent parent) {
+            parent.getChildrenUnmodifiable().forEach(this::disableAll);
+        }
+        node.setDisable(true);
+    }
+
+    private void enableAll(Node node) {
+        if (node instanceof Parent parent) {
+            parent.getChildrenUnmodifiable().forEach(this::enableAll);
+        }
+        node.setDisable(false);
     }
 
     public static void main(String[] args) throws IOException {

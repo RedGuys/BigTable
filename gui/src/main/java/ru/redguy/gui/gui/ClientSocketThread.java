@@ -11,6 +11,7 @@ import java.net.Socket;
 
 //1 - update client info
 //2 - move view
+//3 - sort
 
 public class ClientSocketThread extends Thread {
     private final DataInputStream inputStream;
@@ -29,30 +30,26 @@ public class ClientSocketThread extends Thread {
                 int command = inputStream.readInt();
                 System.out.println(command);
                 switch (command) {
-                    case 1: {
+                    case 1 -> {
                         int size = inputStream.readInt();
                         persons.clear();
                         for (int i = 0; i < size; i++) {
                             persons.add(Person.read(inputStream));
                         }
-                        break;
                     }
-                    case 2: {
+                    case 2 -> {
                         int index = inputStream.readInt();
                         persons.add(index, Person.read(inputStream));
-                        break;
                     }
-                    case 3: {
+                    case 3 -> {
                         int index = inputStream.readInt();
                         if (index < persons.size())
                             persons.remove(index);
-                        break;
                     }
-                    case 4: {
+                    case 4 -> {
                         int index = inputStream.readInt();
                         if (index < persons.size())
                             persons.set(index, Person.read(inputStream));
-                        break;
                     }
                 }
             }
@@ -74,5 +71,11 @@ public class ClientSocketThread extends Thread {
     public void up() throws IOException {
         outputStream.writeInt(2);
         outputStream.writeInt(-1);
+    }
+
+    public void sort(String property, String order) throws IOException {
+        outputStream.writeInt(3);
+        outputStream.writeUTF(property);
+        outputStream.writeUTF(order);
     }
 }
